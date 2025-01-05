@@ -36,6 +36,40 @@
             border-radius: 8px;
         }
 
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .download-btn {
+            padding: 10px 20px;
+            background-color: var(--secondary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .download-btn:hover {
+            background-color: #cc7a00;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -64,22 +98,22 @@
         tr:hover {
             background-color: #f5f5f5;
         }
-
-        .loading {
-            text-align: center;
-            margin-top: 2rem;
-            font-size: 1.2rem;
-            color: var(--primary-color);
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">AWS Billing Dashboard</div>
 
-        <div class="loading">Loading data, please wait...</div>
+        <div class="actions">
+            <a class="download-btn" onclick="downloadExcel()">Download All Data</a>
+            <div class="input-group">
+                <input type="text" id="account-number" placeholder="Enter Account Number">
+                <input type="text" id="month-period" placeholder="Enter Month (e.g., January 2025)">
+                <a class="download-btn" onclick="downloadFilteredData()">Download Filtered Data</a>
+            </div>
+        </div>
 
-        <table>
+        <table id="billing-table">
             <thead>
                 <tr>
                     <th>Sl. No</th>
@@ -107,14 +141,14 @@
                 <tr>
                     <td>3</td>
                     <td>11223</td>
-                    <td>January 2025</td>
+                    <td>February 2025</td>
                     <td>$150.00</td>
                     <td>₹12,000.00</td>
                 </tr>
                 <tr>
                     <td>4</td>
                     <td>44556</td>
-                    <td>January 2025</td>
+                    <td>March 2025</td>
                     <td>$500.00</td>
                     <td>₹40,000.00</td>
                 </tr>
@@ -128,5 +162,65 @@
             </tbody>
         </table>
     </div>
+
+    <script>
+        function downloadExcel() {
+            const table = document.getElementById("billing-table");
+            let data = "";
+            const rows = table.querySelectorAll("tr");
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("th, td");
+                const rowData = Array.from(cells).map(cell => cell.innerText).join(",");
+                data += rowData + "\n";
+            });
+
+            const blob = new Blob([data], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "aws_billing_dashboard.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadFilteredData() {
+            const accountNumber = document.getElementById("account-number").value.trim();
+            const monthPeriod = document.getElementById("month-period").value.trim();
+
+            if (!accountNumber && !monthPeriod) {
+                alert("Please enter at least one filter (Account Number or Month).");
+                return;
+            }
+
+            const table = document.getElementById("billing-table");
+            let data = "";
+            const rows = table.querySelectorAll("tbody tr");
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                const accountMatch = !accountNumber || cells[1].innerText === accountNumber;
+                const monthMatch = !monthPeriod || cells[2].innerText === monthPeriod;
+
+                if (accountMatch && monthMatch) {
+                    const rowData = Array.from(cells).map(cell => cell.innerText).join(",");
+                    data += rowData + "\n";
+                }
+            });
+
+            if (!data) {
+                alert("No data found for the given filters.");
+                return;
+            }
+
+            const blob = new Blob([data], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `filtered_billing_data.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
 </body>
 </html>
