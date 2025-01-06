@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Billing Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #232f3e;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #f8f9fa;
+        }
+        .filters {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+        }
+        .button {
+            background-color: #ff9900;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #ff8800;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 150px;
+        }
+        .total {
+            text-align: right;
+            padding: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>AWS Billing Dashboard</h1>
+        </div>
+        
+        <div class="filters">
+            <button class="button" onclick="downloadAllData()">Download All Data</button>
+            <input type="text" id="accountFilter" placeholder="Account Number">
+            <input type="month" id="monthFilter">
+            <button class="button" onclick="downloadFilteredData()">Download Filtered Data</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Sl. No</th>
+                    <th>Account Number</th>
+                    <th>Month Period</th>
+                    <th>Cost (USD)</th>
+                    <th>Cost (INR)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{tableRows}}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td colspan="3">Total</td>
+                    <td>{{totalCostUSD}}</td>
+                    <td>{{totalCostINR}}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <script>
+        function downloadCSV(data, filename) {
+            // Create CSV content
+            let csvContent = "Sl. No,Account Number,Month Period,Cost (USD),Cost (INR)\n";
+            data.forEach(row => {
+                csvContent += `${row.sl_no},${row.account_number},${row.month_period},$${row.cost_usd},₹${row.cost_inr}\n`;
+            });
+
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        function getTableData() {
+            const rows = Array.from(document.querySelectorAll('table tbody tr'));
+            return rows.map((row, index) => {
+                const cells = row.getElementsByTagName('td');
+                return {
+                    sl_no: cells[0].textContent.trim(),
+                    account_number: cells[1].textContent.trim(),
+                    month_period: cells[2].textContent.trim(),
+                    cost_usd: cells[3].textContent.trim().replace('$', ''),
+                    cost_inr: cells[4].textContent.trim().replace('₹', '')
+                };
+            });
+        }
+
+        function downloadFilteredData() {
+            const accountFilter = document.getElementById('accountFilter').value.trim();
+            const monthFilter = document.getElementById('monthFilter').value;
+            
+            let data = getTableData();
+            
+            // Apply filters
+            if (accountFilter) {
+                data = data.filter(row => row.account_number.includes(accountFilter));
+            }
+            if (monthFilter) {
+                const filterDate = new Date(monthFilter + '-01');
+                const filterMonthYear = filterDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+                data = data.filter(row => row.month_period === filterMonthYear);
+            }
+            
+            if (data.length === 0) {
+                alert('No data matches the selected filters');
+                return;
+            }
+            
+            downloadCSV(data, 'filtered_billing_data.csv');
+        }
+
+        function downloadAllData() {
+            const data = getTableData();
+            downloadCSV(data, 'billing_data.csv');
+        }
+
+        // Add event listeners for filter inputs
+        document.getElementById('accountFilter').addEventListener('input', function(e) {
+            const accountNumber = e.target.value.trim();
+            const rows = document.querySelectorAll('table tbody tr');
+            
+            rows.forEach(row => {
+                const cellAccountNumber = row.cells[1].textContent.trim();
+                if (!accountNumber || cellAccountNumber.includes(accountNumber)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        document.getElementById('monthFilter').addEventListener('change', function(e) {
+            const selectedDate = new Date(e.target.value + '-01');
+            const selectedMonthYear = selectedDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+            const rows = document.querySelectorAll('table tbody tr');
+            
+            rows.forEach(row => {
+                const cellMonthPeriod = row.cells[2].textContent.trim();
+                if (!e.target.value || cellMonthPeriod === selectedMonthYear) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
